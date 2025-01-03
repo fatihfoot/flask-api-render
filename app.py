@@ -1,35 +1,37 @@
+import os
+from cryptography.fernet import Fernet
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
-from cryptography.fernet import Fernet
 
 app = Flask(__name__)
 
+# استرجاع المفتاح السري من المتغير البيئي
+SECRET_KEY = os.getenv('SECRET_KEY')
+
+# إنشاء كائن Fernet باستخدام المفتاح السري
+cipher_suite = Fernet(SECRET_KEY)
+
 # MongoDB Connection String
-MONGO_URI = "mongodb+srv://khalidfoot:Khalidd1233@fatih.zsrfd.mongodb.net/?retryWrites=true&w=majority&appName=fatih"
+MONGO_URI = "mongodb+srv://your-mongo-uri"
 client = MongoClient(MONGO_URI)
 db = client["test_db"]
 collection = db["names"]
 
-# مفتاح التشفير نفسه الذي استخدمناه في الجهة العميلة
-key = b"your-secret-key-here"  # يجب أن يتطابق مع المفتاح في الجهة العميلة
-cipher_suite = Fernet(key)
-
 @app.route('/add-name', methods=['POST'])
 def add_name():
     data = request.json
-    encrypted_name = data.get('name')
+    name = data.get('name')
 
-    if not encrypted_name:
+    if not name:
         return jsonify({"error": "Name is required"}), 400
 
+    # تشفير الاسم قبل تخزينه
+    encrypted_name = cipher_suite.encrypt(name.encode())
+
     try:
-        # فك التشفير
-        name = cipher_suite.decrypt(encrypted_name.encode()).decode()
-
-        # تخزين الاسم المفكوك في MongoDB
-        collection.insert_one({"name": name})
+        # تخزين الاسم المشفر في MongoDB
+        collection.insert_one({"name": encrypted_name})
         return jsonify({"message": "Name added successfully"}), 200
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

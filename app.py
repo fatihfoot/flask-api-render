@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash
+from bson import ObjectId  # للتعامل مع ObjectId
 import os
 from cryptography.fernet import Fernet
 
@@ -56,6 +57,10 @@ def register_user():
             print("Error: Passwords do not match")
             return jsonify({"error": "Passwords do not match"}), 400
 
+        # Check if email already exists
+        if collection.find_one({"email": email}):
+            return jsonify({"error": "Email already exists"}), 400
+
         # Hash the password
         hashed_password = generate_password_hash(password)
 
@@ -86,12 +91,18 @@ def approve_user():
         data = request.json
         user_id = data.get('user_id')
 
-        # Find the user and update their status to "Approved"
-        user = collection.find_one({"_id": user_id})
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+
+        # تحويل user_id إلى ObjectId
+        user_object_id = ObjectId(user_id)
+
+        # البحث عن المستخدم وتحديث حالته
+        user = collection.find_one({"_id": user_object_id})
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        collection.update_one({"_id": user["_id"]}, {"$set": {"status": "Approved"}})
+        collection.update_one({"_id": user_object_id}, {"$set": {"status": "Approved"}})
         print(f"User {user_id} approved successfully")
         return jsonify({"message": "User approved successfully"}), 200
 
@@ -109,6 +120,16 @@ def get_pending_users():
         return jsonify({"users": pending_users}), 200
     except Exception as e:
         print(f"Error retrieving pending users: {e}")
+        return jsonify({"error": "An internal error occurred"}), 500
+
+# Route to check if email exists
+@app.route('/check_email/<email>', methods=['GET'])
+def check_email(email):
+    try:
+        user = collection.find_one({"email": email})
+        return jsonify({"exists": bool(user)}), 200
+    except Exception as e:
+        print(f"Error checking email existence: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
 
 # Debugging for all exceptions

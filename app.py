@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
-from werkzeug.security import check_password_hash
+from werkzeug.security import generate_password_hash
 import os
 from cryptography.fernet import Fernet
 
@@ -30,75 +30,92 @@ collection = db["users"]
 # Route to register a user
 @app.route('/register', methods=['POST'])
 def register_user():
-    data = request.json
-    first_name = data.get('first_name')
-    last_name = data.get('last_name')
-    email = data.get('email')
-    phone = data.get('phone')
-    city = data.get('city')
-    password = data.get('password')
-    confirm_password = data.get('confirm_password')
+    try:
+        data = request.json
+        print("Received data:", data)  # Debugging data received
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-    if not first_name or not last_name or not email or not phone or not city or not password or not confirm_password:
-        return jsonify({"error": "All fields are required"}), 400
+        # Retrieve data from request
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        email = data.get('email')
+        phone = data.get('phone')
+        city = data.get('city')
+        password = data.get('password')
+        confirm_password = data.get('confirm_password')
 
-    if password != confirm_password:
-        return jsonify({"error": "Passwords do not match"}), 400
+        # Check for missing fields
+        if not all([first_name, last_name, email, phone, city, password, confirm_password]):
+            print("Error: Missing fields")
+            return jsonify({"error": "All fields are required"}), 400
 
-    # Hash password
-    hashed_password = generate_password_hash(password)
-    
-    # Save the user with status "Pending"
-    collection.insert_one({
-        "first_name": first_name,
-        "last_name": last_name,
-        "email": email,
-        "phone": phone,
-        "city": city,
-        "password": hashed_password,
-        "status": "Pending",  # Status is set to 'Pending'
-    })
+        # Check if passwords match
+        if password != confirm_password:
+            print("Error: Passwords do not match")
+            return jsonify({"error": "Passwords do not match"}), 400
 
-    return jsonify({"message": "User registered successfully. Await admin approval."}), 201
+        # Hash the password
+        hashed_password = generate_password_hash(password)
+
+        # Save the user to the database
+        user = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "phone": phone,
+            "city": city,
+            "password": hashed_password,
+            "status": "Pending"
+        }
+
+        result = collection.insert_one(user)
+        print("User added to database with ID:", result.inserted_id)
+
+        return jsonify({"message": "User registered successfully"}), 201
+
+    except Exception as e:
+        print(f"Error during user registration: {e}")
+        return jsonify({"error": "An internal error occurred"}), 500
 
 # Route for admin to approve user
 @app.route('/approve_user', methods=['POST'])
 def approve_user():
-    data = request.json
-    user_id = data.get('user_id')
+    try:
+        data = request.json
+        user_id = data.get('user_id')
 
-    # Find the user and update their status to "Approved"
-    user = collection.find_one({"_id": user_id})
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    
-    collection.update_one({"_id": user["_id"]}, {"$set": {"status": "Approved"}})
-    
-    return jsonify({"message": "User approved successfully"}), 200
+        # Find the user and update their status to "Approved"
+        user = collection.find_one({"_id": user_id})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
-# Route for user login
-@app.route('/login', methods=['POST'])
-def login_user():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
+        collection.update_one({"_id": user["_id"]}, {"$set": {"status": "Approved"}})
+        print(f"User {user_id} approved successfully")
+        return jsonify({"message": "User approved successfully"}), 200
 
-    # Check if the user exists
-    user = collection.find_one({"email": email})
-    
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    except Exception as e:
+        print(f"Error during user approval: {e}")
+        return jsonify({"error": "An internal error occurred"}), 500
 
-    # Verify the password
-    if not check_password_hash(user['password'], password):
-        return jsonify({"error": "Invalid credentials"}), 400
-    
-    # Check if the user is approved
-    if user['status'] == 'Pending':
-        return jsonify({"error": "Your account is pending approval by the admin"}), 400
+# Route to check pending users
+@app.route('/pending_users', methods=['GET'])
+def get_pending_users():
+    try:
+        pending_users = list(collection.find({"status": "Pending"}))
+        for user in pending_users:
+            user["_id"] = str(user["_id"])  # Convert ObjectId to string for JSON
+        return jsonify({"users": pending_users}), 200
+    except Exception as e:
+        print(f"Error retrieving pending users: {e}")
+        return jsonify({"error": "An internal error occurred"}), 500
 
-    # If the user is approved, return success and user data
-    return jsonify({"message": "Login successful", "user": user}), 200
+# Debugging for all exceptions
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print(f"Unhandled Exception: {e}")
+    return jsonify({"error": "An internal server error occurred"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

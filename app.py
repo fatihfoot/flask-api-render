@@ -4,12 +4,19 @@ from werkzeug.security import generate_password_hash
 import os
 from cryptography.fernet import Fernet
 
+# Check if the necessary environment variables are set
+ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY")
+ENCRYPTED_MONGODB_URI = os.environ.get("ENCRYPTED_MONGODB_URI")
+
+if not ENCRYPTION_KEY or not ENCRYPTED_MONGODB_URI:
+    raise ValueError("Missing required environment variables: ENCRYPTION_KEY or ENCRYPTED_MONGODB_URI")
+
 # Load encryption key for MongoDB URI
-key = os.environ.get("ENCRYPTION_KEY").encode()
+key = ENCRYPTION_KEY.encode()
 cipher = Fernet(key)
 
 # Decrypt MongoDB URI
-encrypted_uri = os.environ.get("ENCRYPTED_MONGODB_URI").encode()
+encrypted_uri = ENCRYPTED_MONGODB_URI.encode()
 MONGODB_URI = cipher.decrypt(encrypted_uri).decode()
 
 # Flask app

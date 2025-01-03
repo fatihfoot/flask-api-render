@@ -64,4 +64,17 @@ def register_user():
 # Route for admin to approve user
 @app.route('/approve_user', methods=['POST'])
 def approve_user():
-    data = request.j
+    data = request.json
+    user_id = data.get('user_id')
+
+    # Find the user and update their status to "Approved"
+    user = collection.find_one({"_id": user_id})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    collection.update_one({"_id": user["_id"]}, {"$set": {"status": "Approved"}})
+    
+    return jsonify({"message": "User approved successfully"}), 200
+
+if __name__ == '__main__':
+    app.run(debug=True)

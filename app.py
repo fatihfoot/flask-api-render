@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
-from werkzeug.security import generate_password_hash
-from bson import ObjectId  # للتعامل مع ObjectId
+from werkzeug.security import generate_password_hash, check_password_hash
+from bson import ObjectId
 import os
 from cryptography.fernet import Fernet
 
@@ -33,7 +33,7 @@ collection = db["users"]
 def register_user():
     try:
         data = request.json
-        print("Received data:", data)  # Debugging data received
+        print("Received data for registration:", data)
 
         if not data:
             return jsonify({"error": "No data provided"}), 400
@@ -49,12 +49,10 @@ def register_user():
 
         # Check for missing fields
         if not all([first_name, last_name, email, phone, city, password, confirm_password]):
-            print("Error: Missing fields")
             return jsonify({"error": "All fields are required"}), 400
 
         # Check if passwords match
         if password != confirm_password:
-            print("Error: Passwords do not match")
             return jsonify({"error": "Passwords do not match"}), 400
 
         # Check if email already exists
@@ -81,7 +79,46 @@ def register_user():
         return jsonify({"message": "User registered successfully"}), 201
 
     except Exception as e:
-        print(f"Error during user registration: {e}")
+        print(f"Error during registration: {e}")
+        return jsonify({"error": "An internal error occurred"}), 500
+
+# Route to login a user
+@app.route('/login', methods=['POST'])
+def login_user():
+    try:
+        data = request.json
+        print(f"Received login request: {data}")
+
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return jsonify({"error": "Email and password are required"}), 400
+
+        # البحث عن المستخدم
+        user = collection.find_one({"email": email})
+        print(f"User found: {user}")
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # تحقق من حالة المستخدم
+        if user.get("status") != "Approved":
+            return jsonify({"error": "Account not approved yet"}), 403
+
+        # تحقق من كلمة المرور
+        if not check_password_hash(user["password"], password):
+            return jsonify({"error": "Invalid password"}), 401
+
+        # تسجيل الدخول ناجح
+        print("Login successful")
+        return jsonify({
+            "message": "Login successful",
+            "status": user["status"]
+        }), 200
+
+    except Exception as e:
+        print(f"Error during login: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
 
 # Route for admin to approve user
@@ -94,22 +131,17 @@ def approve_user():
         if not user_id:
             return jsonify({"error": "User ID is required"}), 400
 
-        # تحويل user_id إلى ObjectId
         user_object_id = ObjectId(user_id)
-        print(f"Searching for user with ObjectId: {user_object_id}")  # تتبع البحث
-
-        # البحث عن المستخدم
         user = collection.find_one({"_id": user_object_id})
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        # تحديث حالة المستخدم
         collection.update_one({"_id": user_object_id}, {"$set": {"status": "Approved"}})
         print(f"User {user_id} approved successfully")
         return jsonify({"message": "User approved successfully"}), 200
 
     except Exception as e:
-        print(f"Error during user approval: {e}")
+        print(f"Error during approval: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
 
 # Route to check pending users
@@ -133,12 +165,6 @@ def check_email(email):
     except Exception as e:
         print(f"Error checking email existence: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
-
-# Debugging for all exceptions
-@app.errorhandler(Exception)
-def handle_exception(e):
-    print(f"Unhandled Exception: {e}")
-    return jsonify({"error": "An internal server error occurred"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

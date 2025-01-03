@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash
 import os
 from cryptography.fernet import Fernet
 
@@ -75,6 +75,30 @@ def approve_user():
     collection.update_one({"_id": user["_id"]}, {"$set": {"status": "Approved"}})
     
     return jsonify({"message": "User approved successfully"}), 200
+
+# Route for user login
+@app.route('/login', methods=['POST'])
+def login_user():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+
+    # Check if the user exists
+    user = collection.find_one({"email": email})
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Verify the password
+    if not check_password_hash(user['password'], password):
+        return jsonify({"error": "Invalid credentials"}), 400
+    
+    # Check if the user is approved
+    if user['status'] == 'Pending':
+        return jsonify({"error": "Your account is pending approval by the admin"}), 400
+
+    # If the user is approved, return success and user data
+    return jsonify({"message": "Login successful", "user": user}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

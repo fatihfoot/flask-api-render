@@ -34,7 +34,7 @@ def register_user():
     try:
         data = request.json
         print("Received data:", data)  # Debugging data received
-        
+
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
@@ -96,12 +96,14 @@ def approve_user():
 
         # تحويل user_id إلى ObjectId
         user_object_id = ObjectId(user_id)
+        print(f"Searching for user with ObjectId: {user_object_id}")  # تتبع البحث
 
-        # البحث عن المستخدم وتحديث حالته
+        # البحث عن المستخدم
         user = collection.find_one({"_id": user_object_id})
         if not user:
             return jsonify({"error": "User not found"}), 404
 
+        # تحديث حالة المستخدم
         collection.update_one({"_id": user_object_id}, {"$set": {"status": "Approved"}})
         print(f"User {user_id} approved successfully")
         return jsonify({"message": "User approved successfully"}), 200

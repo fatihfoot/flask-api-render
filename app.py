@@ -1,40 +1,40 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
-from cryptography.fernet import Fernet
+from werkzeug.security import generate_password_hash
 import os
+from cryptography.fernet import Fernet
 
+# Load encryption key for MongoDB URI
+key = os.environ.get("ENCRYPTION_KEY").encode()
+cipher = Fernet(key)
+
+# Decrypt MongoDB URI
+encrypted_uri = os.environ.get("ENCRYPTED_MONGODB_URI").encode()
+MONGODB_URI = cipher.decrypt(encrypted_uri).decode()
+
+# Flask app
 app = Flask(__name__)
 
-# تحميل المفتاح السري من البيئة (يجب إضافته في Render)
-SECRET_KEY = os.getenv('SECRET_KEY')
-MONGO_URI = os.getenv('MONGO_URI')
+# MongoDB setup
+client = MongoClient(MONGODB_URI)
+db = client["flet_database"]
+collection = db["users"]
 
-if not SECRET_KEY:
-    raise ValueError("SECRET_KEY is required")
-
-cipher_suite = Fernet(SECRET_KEY)
-
-# MongoDB Connection
-client = MongoClient(MONGO_URI)
-db = client["test_db"]
-collection = db["names"]
-
-@app.route('/add-name', methods=['POST'])
-def add_name():
+@app.route('/add_user', methods=['POST'])
+def add_user():
     data = request.json
     name = data.get('name')
-
-    if not name:
-        return jsonify({"error": "Name is required"}), 400
-
-    # تشفير الاسم قبل حفظه
-    encrypted_name = cipher_suite.encrypt(name.encode())
-
-    try:
-        collection.insert_one({"name": encrypted_name})
-        return jsonify({"message": "Name added successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    password = data.get('password')
+    
+    if not name or not password:
+        return jsonify({"error": "Name and password are required"}), 400
+    
+    # Hash password
+    hashed_password = generate_password_hash(password)
+    
+    # Save to MongoDB
+    collection.insert_one({"name": name, "password": hashed_password})
+    return jsonify({"message": "User added successfully!"}), 201
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # تفعيل CORS للسماح بالاتصال من التطبيقات
 
 # الحالة والبيانات في الذاكرة
 game_state = {
@@ -9,6 +11,11 @@ game_state = {
     "team2": [],
     "players": []
 }
+
+@app.route('/', methods=['GET'])
+def home():
+    """عرض رسالة تأكيد أن الخادم يعمل"""
+    return "الخادم يعمل بنجاح!"
 
 @app.route('/state', methods=['GET'])
 def get_state():
@@ -45,4 +52,4 @@ def reset_players():
     return jsonify({"message": "تم مسح جميع اللاعبين بنجاح."})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

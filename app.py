@@ -28,6 +28,12 @@ client = MongoClient(MONGODB_URI)
 db = client["flet_database"]
 collection = db["users"]
 
+# General error handler
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print(f"Unhandled Exception: {e}")
+    return jsonify({"error": "An internal server error occurred", "details": str(e)}), 500
+
 # Route to register a user
 @app.route('/register', methods=['POST'])
 def register_user():
@@ -93,7 +99,6 @@ def login_user():
         password = data.get('password')
 
         if not email or not password:
-            print("Error: Email or password is missing")
             return jsonify({"error": "Email and password are required"}), 400
 
         # البحث عن المستخدم
@@ -101,12 +106,10 @@ def login_user():
         print(f"User found: {user}")
 
         if not user:
-            print("Error: User not found")
             return jsonify({"error": "User not found"}), 404
 
         # تحقق من حالة المستخدم
         if user.get("status") != "Approved":
-            print(f"Error: User status is {user.get('status')}")
             return jsonify({"error": "Account not approved yet"}), 403
 
         # تحقق من كلمة المرور
@@ -126,6 +129,7 @@ def login_user():
     except Exception as e:
         print(f"Unhandled Exception during login: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
+
 # Route for admin to approve user
 @app.route('/approve_user', methods=['POST'])
 def approve_user():

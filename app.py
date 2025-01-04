@@ -92,16 +92,19 @@ def register_user():
 @app.route('/login', methods=['POST'])
 def login_user():
     try:
+        # الحصول على البيانات من الطلب
         data = request.json
         print(f"Received login request: {data}")
 
+        # التحقق من الحقول المطلوبة
         email = data.get('email')
         password = data.get('password')
 
         if not email or not password:
+            print("Error: Email or password is missing")
             return jsonify({"error": "Email and password are required"}), 400
 
-        # البحث عن المستخدم
+        # البحث عن المستخدم في قاعدة البيانات
         user = collection.find_one({"email": email})
         print(f"User found: {user}")
 
@@ -109,14 +112,15 @@ def login_user():
             print("Error: User not found")
             return jsonify({"error": "User not found"}), 404
 
-        # تحقق من كلمة المرور أولاً
+        # التحقق من كلمة المرور
         print(f"Entered password: {password}")
         print(f"Stored hashed password: {user['password']}")
+        from werkzeug.security import check_password_hash
         if not check_password_hash(user["password"], password):
             print("Error: Invalid password")
             return jsonify({"error": "Invalid password"}), 401
 
-        # تحقق من حالة المستخدم
+        # التحقق من حالة الحساب
         if user.get("status") != "Approved":
             print(f"Error: User status is {user.get('status')}")
             return jsonify({"error": "Account not approved yet"}), 403
@@ -129,8 +133,9 @@ def login_user():
         }), 200
 
     except Exception as e:
+        # تسجيل الخطأ وإرجاع رسالة JSON مفصلة
         print(f"Unhandled Exception during login: {e}")
-        return jsonify({"error": "An internal error occurred"}), 500
+        return jsonify({"error": "An internal error occurred", "details": str(e)}), 500
 # Route for admin to approve user
 @app.route('/approve_user', methods=['POST'])
 def approve_user():

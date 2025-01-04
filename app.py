@@ -106,18 +106,20 @@ def login_user():
         print(f"User found: {user}")
 
         if not user:
+            print("Error: User not found")
             return jsonify({"error": "User not found"}), 404
 
-        # تحقق من حالة المستخدم
-        if user.get("status") != "Approved":
-            return jsonify({"error": "Account not approved yet"}), 403
-
-        # تحقق من كلمة المرور
+        # تحقق من كلمة المرور أولاً
         print(f"Entered password: {password}")
         print(f"Stored hashed password: {user['password']}")
         if not check_password_hash(user["password"], password):
             print("Error: Invalid password")
             return jsonify({"error": "Invalid password"}), 401
+
+        # تحقق من حالة المستخدم
+        if user.get("status") != "Approved":
+            print(f"Error: User status is {user.get('status')}")
+            return jsonify({"error": "Account not approved yet"}), 403
 
         # تسجيل الدخول ناجح
         print("Login successful")
@@ -129,7 +131,6 @@ def login_user():
     except Exception as e:
         print(f"Unhandled Exception during login: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
-
 # Route for admin to approve user
 @app.route('/approve_user', methods=['POST'])
 def approve_user():

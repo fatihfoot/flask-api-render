@@ -35,11 +35,9 @@ def add_player():
     if not name:
         return jsonify({"error": "الاسم مطلوب"}), 400
 
-    # تحقق إذا كان اللاعب موجودًا مسبقًا
     if name in game_state["players"]:
         return jsonify({"error": "اللاعب موجود بالفعل"}), 400
 
-    # إضافة اللاعب إلى القائمة
     game_state["players"].append(name)
     return jsonify({"message": f"تم إضافة {name} بنجاح."}), 200
 

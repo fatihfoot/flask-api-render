@@ -51,33 +51,5 @@ def reset_players():
     game_state["team2"] = []
     return jsonify({"message": "تم مسح جميع اللاعبين بنجاح."})
 
-@app.route('/distribute', methods=['POST'])
-def distribute_teams():
-    """توزيع اللاعبين على فريقين"""
-    import random
-
-    # توزيع اللاعبين عشوائيًا
-    players = game_state["players"]
-    random.shuffle(players)
-
-    # فصل فريق A وفريق B
-    team1, team2 = players[::2], players[1::2]
-
-    # ضمان أن "ياسين" و"ريشي" لا يكونان في نفس الفريق
-    if "ياسين" in team1 and "ريشي" in team1:
-        team1.remove("ريشي")
-        team2.append("ريشي")
-    elif "ياسين" in team2 and "ريشي" in team2:
-        team2.remove("ريشي")
-        team1.append("ريشي")
-
-    game_state["team1"] = team1
-    game_state["team2"] = team2
-
-    return jsonify({
-        "team1": team1,
-        "team2": team2
-    })
-
 if __name__ == '__main__':
     app.run(debug=True)

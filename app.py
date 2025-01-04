@@ -89,10 +89,13 @@ def login_user():
         data = request.json
         print(f"Received login request: {data}")
 
+        # التحقق من وجود البريد الإلكتروني وكلمة المرور
         email = data.get('email')
         password = data.get('password')
+        print(f"Email: {email}, Password: {password}")
 
         if not email or not password:
+            print("Error: Email or password is missing")
             return jsonify({"error": "Email and password are required"}), 400
 
         # البحث عن المستخدم
@@ -100,14 +103,18 @@ def login_user():
         print(f"User found: {user}")
 
         if not user:
+            print("Error: User not found")
             return jsonify({"error": "User not found"}), 404
 
         # تحقق من حالة المستخدم
         if user.get("status") != "Approved":
+            print(f"Error: User status is {user.get('status')}")
             return jsonify({"error": "Account not approved yet"}), 403
 
         # تحقق من كلمة المرور
+        from werkzeug.security import check_password_hash
         if not check_password_hash(user["password"], password):
+            print("Error: Invalid password")
             return jsonify({"error": "Invalid password"}), 401
 
         # تسجيل الدخول ناجح
@@ -118,9 +125,9 @@ def login_user():
         }), 200
 
     except Exception as e:
-        print(f"Error during login: {e}")
+        # تتبع الأخطاء غير المتوقعة
+        print(f"Unhandled Exception during login: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
-
 # Route for admin to approve user
 @app.route('/approve_user', methods=['POST'])
 def approve_user():

@@ -89,10 +89,8 @@ def login_user():
         data = request.json
         print(f"Received login request: {data}")
 
-        # التحقق من وجود البريد الإلكتروني وكلمة المرور
         email = data.get('email')
         password = data.get('password')
-        print(f"Email: {email}, Password: {password}")
 
         if not email or not password:
             print("Error: Email or password is missing")
@@ -112,7 +110,8 @@ def login_user():
             return jsonify({"error": "Account not approved yet"}), 403
 
         # تحقق من كلمة المرور
-        from werkzeug.security import check_password_hash
+        print(f"Entered password: {password}")
+        print(f"Stored hashed password: {user['password']}")
         if not check_password_hash(user["password"], password):
             print("Error: Invalid password")
             return jsonify({"error": "Invalid password"}), 401
@@ -125,7 +124,6 @@ def login_user():
         }), 200
 
     except Exception as e:
-        # تتبع الأخطاء غير المتوقعة
         print(f"Unhandled Exception during login: {e}")
         return jsonify({"error": "An internal error occurred"}), 500
 # Route for admin to approve user

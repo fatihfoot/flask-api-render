@@ -1,4 +1,2 @@
-flask
-pymongo
-gunicorn
-cryptography
+flet
+requests

@@ -15,7 +15,7 @@ def get_state():
     """إرجاع حالة اللعبة."""
     return jsonify({
         "is_open": is_open,
-        "players": players
+        "players": [{"name": name, "uuid": uuid} for uuid, name in uuid_to_player.items()]
     })
 
 @app.route('/add_player', methods=['POST'])
@@ -45,7 +45,7 @@ def add_player():
 
     # إضافة اللاعب
     players.append(name)
-    uuid_to_player[user_uuid] = current_session_id
+    uuid_to_player[user_uuid] = name
     return jsonify({"message": f"تمت إضافة {name} بنجاح."}), 200
 
 @app.route('/reset_players', methods=['POST'])

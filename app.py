@@ -53,7 +53,7 @@ def reset_players():
     """إعادة تعيين اللاعبين وبدء جلسة جديدة."""
     global players, uuid_to_player, current_session_id, is_open
     players = []
-    uuid_to_player = {}
+    uuid_to_player = {}  # مسح UUIDs عند بدء جلسة جديدة
     current_session_id = str(uuid.uuid4())  # إنشاء معرف جلسة جديد
     is_open = False  # إغلاق الأزرار بعد إعادة التعيين
     return jsonify({"message": "تمت إعادة تعيين جميع اللاعبين وبدء جلسة جديدة."}), 200

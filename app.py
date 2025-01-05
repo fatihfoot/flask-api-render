@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import random
 
-app = Flask(_name_)
+app = Flask(__name__)
 CORS(app)
 
 state = {
@@ -82,5 +82,5 @@ def distribute_teams():
 
     return jsonify({"team1": [p["name"] for p in team1], "team2": [p["name"] for p in team2]})
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

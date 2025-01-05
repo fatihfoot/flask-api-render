@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 import random
 
@@ -8,88 +8,77 @@ CORS(app)
 # حالة اللعبة
 game_state = {
     "is_open": False,
-    "players": [],  # قائمة اللاعبين {name: str, user_id: str}
+    "players": [],
     "team1": [],
     "team2": []
 }
 
-@app.route('/state', methods=['GET'])
-def get_state():
-    """إرجاع حالة اللعبة"""
-    return jsonify({
-        "is_open": game_state["is_open"],
-        "players": game_state["players"],
-        "team1": game_state["team1"],
-        "team2": game_state["team2"]
-    })
-
 @app.route('/toggle_open', methods=['POST'])
 def toggle_open():
-    """فتح/إغلاق الأزرار"""
     game_state["is_open"] = not game_state["is_open"]
+    if game_state["is_open"]:
+        game_state["team1"] = []
+        game_state["team2"] = []
     return jsonify({"is_open": game_state["is_open"]})
 
-@app.route('/reset_players', methods=['POST'])
-def reset_players():
-    """إعادة تعيين قائمة اللاعبين"""
-    game_state["players"] = []
-    game_state["team1"] = []
-    game_state["team2"] = []
-    return jsonify({"success": True})
+@app.route('/state', methods=['GET'])
+def get_state():
+    return jsonify({
+        "is_open": game_state["is_open"],
+        "players": game_state["players"]
+    })
 
 @app.route('/add_player', methods=['POST'])
 def add_player():
-    """إضافة لاعب جديد"""
+    user_id = request.cookies.get('user_id')
+    if not user_id:
+        return jsonify({"error": "User not identified"}), 403
+
     data = request.get_json()
-    name = data.get('name')
-    user_id = data.get('user_id')
+    player_name = data.get("name")
 
-    if not name or not user_id:
-        return jsonify({"error": "اسم اللاعب أو معرف المستخدم غير متوفر"}), 400
+    # تحقق إذا كان المستخدم قد أضاف بالفعل اسمًا
+    if any(player["user_id"] == user_id for player in game_state["players"]):
+        return jsonify({"error": "You have already added a name."}), 400
 
-    # تحقق إذا كان المستخدم قد أضاف اسمه بالفعل
-    if any(player['user_id'] == user_id for player in game_state["players"]):
-        return jsonify({"error": "لقد قمت بإضافة اسمك بالفعل"}), 403
+    # تحقق إذا كان الاسم موجودًا مسبقًا
+    if any(player["name"] == player_name for player in game_state["players"]):
+        return jsonify({"error": "Name already exists."}), 400
 
-    # تحقق من عدد اللاعبين (حد أقصى 12)
-    if len(game_state["players"]) >= 12:
-        return jsonify({"error": "تم الوصول إلى الحد الأقصى لعدد اللاعبين"}), 403
-
-    # إضافة اللاعب
-    game_state["players"].append({"name": name, "user_id": user_id})
-    return jsonify({"success": True}), 200
+    game_state["players"].append({"name": player_name, "user_id": user_id})
+    return jsonify({"message": "Player added successfully."})
 
 @app.route('/distribute', methods=['POST'])
 def distribute():
-    """توزيع اللاعبين عشوائيًا"""
     players = [player["name"] for player in game_state["players"]]
-
     if len(players) < 2:
-        return jsonify({"error": "عدد اللاعبين غير كافٍ للتوزيع"}), 400
+        return jsonify({"error": "Not enough players to distribute."}), 400
 
-    random.shuffle(players)
-
-    # توزيع اللاعبين مع مراعاة "ريشي" و"ياسين"
-    team1, team2 = [], []
+    # توزيع عشوائي مع الفلتر
+    team1 = []
+    team2 = []
     for player in players:
-        if "ريشي" in team1 and player == "ياسين":
-            team2.append(player)
-        elif "ياسين" in team1 and player == "ريشي":
-            team2.append(player)
-        elif "ريشي" in team2 and player == "ياسين":
+        if player == "ريشي":
             team1.append(player)
-        elif "ياسين" in team2 and player == "ريشي":
-            team1.append(player)
+        elif player == "ياسين":
+            team2.append(player)
         else:
-            if len(team1) <= len(team2):
-                team1.append(player)
-            else:
-                team2.append(player)
+            (team1 if len(team1) <= len(team2) else team2).append(player)
 
     game_state["team1"] = team1
     game_state["team2"] = team2
-
     return jsonify({"team1": team1, "team2": team2})
+
+@app.route('/reset_players', methods=['POST'])
+def reset_players():
+    game_state["players"] = []
+    return jsonify({"message": "All players have been reset."})
+
+@app.route('/set_cookie', methods=['GET'])
+def set_cookie():
+    resp = make_response("Cookie set!")
+    resp.set_cookie('user_id', str(random.randint(1000, 9999)))  # معرف فريد بسيط
+    return resp
 
 if __name__ == '__main__':
     app.run(debug=True)

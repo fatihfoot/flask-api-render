@@ -1,55 +1,57 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # تفعيل CORS للسماح بالاتصال من التطبيقات
 
-# الحالة والبيانات في الذاكرة
-game_state = {
-    "is_open": False,
-    "team1": [],
-    "team2": [],
-    "players": []
-}
+# تخزين اللاعبين و UUIDs
+players = []  # قائمة بأسماء اللاعبين
+uuid_to_player = {}  # خريطة من UUID إلى اسم اللاعب
 
-@app.route('/', methods=['GET'])
-def home():
-    """عرض رسالة تأكيد أن الخادم يعمل"""
-    return "الخادم يعمل بنجاح!"
+MAX_PLAYERS = 12  # الحد الأقصى لعدد اللاعبين
 
 @app.route('/state', methods=['GET'])
 def get_state():
-    """إرجاع حالة اللعبة"""
-    return jsonify(game_state)
-
-@app.route('/toggle_open', methods=['POST'])
-def toggle_open():
-    """فتح/إغلاق الأزرار"""
-    game_state["is_open"] = not game_state["is_open"]
-    return jsonify({"is_open": game_state["is_open"]})
+    """إرجاع حالة اللعبة."""
+    return jsonify({
+        "is_open": True,  # الأزرار مفتوحة دائمًا (يمكنك التحكم من واجهة الأدمين)
+        "players": players
+    })
 
 @app.route('/add_player', methods=['POST'])
 def add_player():
-    """إضافة لاعب"""
+    """إضافة لاعب جديد."""
     data = request.get_json()
     name = data.get("name")
+    user_uuid = data.get("uuid")
 
-    if not name:
-        return jsonify({"error": "الاسم مطلوب"}), 400
+    # تحقق من صحة البيانات
+    if not name or not user_uuid:
+        return jsonify({"error": "اسم اللاعب أو UUID مفقود."}), 400
 
-    if name in game_state["players"]:
-        return jsonify({"error": "اللاعب موجود بالفعل"}), 400
+    # تحقق من الحد الأقصى للاعبين
+    if len(players) >= MAX_PLAYERS:
+        return jsonify({"error": "تم الوصول إلى الحد الأقصى لعدد اللاعبين."}), 403
 
-    game_state["players"].append(name)
-    return jsonify({"message": f"تم إضافة {name} بنجاح."}), 200
+    # تحقق من أن المستخدم لم يسجل بالفعل
+    if user_uuid in uuid_to_player:
+        return jsonify({"error": "لقد قمت بإضافة اسم مسبقًا."}), 403
+
+    # إضافة اللاعب
+    players.append(name)
+    uuid_to_player[user_uuid] = name
+    return jsonify({"message": f"تمت إضافة {name} بنجاح."}), 200
 
 @app.route('/reset_players', methods=['POST'])
 def reset_players():
-    """مسح جميع اللاعبين"""
-    game_state["players"] = []
-    game_state["team1"] = []
-    game_state["team2"] = []
-    return jsonify({"message": "تم مسح جميع اللاعبين بنجاح."})
+    """إعادة تعيين اللاعبين."""
+    global players, uuid_to_player
+    players = []
+    uuid_to_player = {}
+    return jsonify({"message": "تمت إعادة تعيين جميع اللاعبين."}), 200
+
+@app.route('/toggle_open', methods=['POST'])
+def toggle_open():
+    """تبديل حالة الأزرار (مثال فقط، الحالة ثابتة هنا)."""
+    return jsonify({"is_open": True})  # الأزرار تبقى مفتوحة
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)

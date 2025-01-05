@@ -34,15 +34,15 @@ def add_player():
         return jsonify({"error": "Missing UUID"}), 400
 
     if client_uuid in added_players:
-        return jsonify({"error": "You have already added a player"}), 403
+        return jsonify({"error": "لقد قمت بالفعل بضافة الاعب"}), 403
 
     if len(state["players"]) >= MAX_PLAYERS:
-        return jsonify({"error": "Max players reached"}), 403
+        return jsonify({"error": "تم الوصول للحد الاقصى من لاعبين حظ موفق في المرة القادمة"}), 403
 
     player_name = data.get("name", "").strip()
 
     if not player_name:
-        return jsonify({"error": "Player name is required"}), 400
+        return jsonify({"error": "اسم لاعب مطلوب"}), 400
 
     state["players"].append({"name": player_name, "uuid": client_uuid})
     added_players[client_uuid] = player_name

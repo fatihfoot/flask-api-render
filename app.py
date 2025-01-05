@@ -1,69 +1,78 @@
-from flask import Flask, request, jsonify
-import uuid
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import random
 
 app = Flask(__name__)
+CORS(app)
 
-# تخزين اللاعبين و UUIDs والجلسة الحالية
-players = []  # قائمة بأسماء اللاعبين
-uuid_to_player = {}  # خريطة من UUID إلى اسم اللاعب والجلسة
-current_session_id = str(uuid.uuid4())  # معرف الجلسة الحالي
-MAX_PLAYERS = 12  # الحد الأقصى لعدد اللاعبين
-is_open = False  # حالة الأزرار (مغلقة أو مفتوحة)
+# البيانات في الذاكرة
+state = {
+    "is_open": False,
+    "players": []
+}
 
 @app.route('/state', methods=['GET'])
 def get_state():
     """إرجاع حالة اللعبة."""
-    return jsonify({
-        "is_open": is_open,
-        "players": [{"name": name, "uuid": uuid} for uuid, name in uuid_to_player.items()]
-    })
-
-@app.route('/add_player', methods=['POST'])
-def add_player():
-    """إضافة لاعب جديد."""
-    global players, uuid_to_player
-
-    data = request.get_json()
-    name = data.get("name")
-    user_uuid = data.get("uuid")
-
-    # تحقق من صحة البيانات
-    if not name or not user_uuid:
-        return jsonify({"error": "اسم اللاعب أو UUID مفقود."}), 400
-
-    # تحقق من حالة الجلسة
-    if not is_open:
-        return jsonify({"error": "الأزرار مغلقة حاليًا."}), 403
-
-    # تحقق من الحد الأقصى للاعبين
-    if len(players) >= MAX_PLAYERS:
-        return jsonify({"error": "تم الوصول إلى الحد الأقصى لعدد اللاعبين."}), 403
-
-    # تحقق من أن المستخدم لم يسجل بالفعل في الجلسة الحالية
-    if user_uuid in uuid_to_player and uuid_to_player[user_uuid] == current_session_id:
-        return jsonify({"error": "لقد قمت بإضافة اسم مسبقًا في هذه الجلسة."}), 403
-
-    # إضافة اللاعب
-    players.append(name)
-    uuid_to_player[user_uuid] = name
-    return jsonify({"message": f"تمت إضافة {name} بنجاح."}), 200
-
-@app.route('/reset_players', methods=['POST'])
-def reset_players():
-    """إعادة تعيين اللاعبين وبدء جلسة جديدة."""
-    global players, uuid_to_player, current_session_id, is_open
-    players = []
-    uuid_to_player = {}  # مسح UUIDs عند بدء جلسة جديدة
-    current_session_id = str(uuid.uuid4())  # إنشاء معرف جلسة جديد
-    is_open = False  # إغلاق الأزرار بعد إعادة التعيين
-    return jsonify({"message": "تمت إعادة تعيين جميع اللاعبين وبدء جلسة جديدة."}), 200
+    return jsonify(state)
 
 @app.route('/toggle_open', methods=['POST'])
 def toggle_open():
-    """فتح/إغلاق أزرار المستخدمين."""
-    global is_open
-    is_open = not is_open
-    return jsonify({"is_open": is_open})
+    """تبديل حالة الأزرار بين الفتح والإغلاق."""
+    state["is_open"] = not state["is_open"]
+    return jsonify({"is_open": state["is_open"]})
+
+@app.route('/add_player', methods=['POST'])
+def add_player():
+    """إضافة لاعب جديد إلى القائمة."""
+    data = request.get_json()
+    player_name = data.get("name")
+
+    if not player_name:
+        return jsonify({"error": "الاسم مطلوب."}), 400
+
+    if player_name in state["players"]:
+        return jsonify({"error": "اللاعب موجود بالفعل."}), 400
+
+    if len(state["players"]) >= 12:
+        return jsonify({"error": "تم الوصول إلى الحد الأقصى لعدد اللاعبين."}), 400
+
+    state["players"].append(player_name)
+    return jsonify({"message": "تمت إضافة اللاعب بنجاح."}), 200
+
+@app.route('/reset_players', methods=['POST'])
+def reset_players():
+    """إعادة تعيين قائمة اللاعبين."""
+    state["players"] = []
+    return jsonify({"message": "تمت إعادة تعيين اللاعبين."}), 200
+
+@app.route('/distribute', methods=['POST'])
+def distribute():
+    """توزيع اللاعبين إلى فريقين."""
+    if len(state["players"]) < 2:
+        return jsonify({"error": "عدد اللاعبين غير كافٍ للتوزيع."}), 400
+
+    random.shuffle(state["players"])
+
+    team1 = []
+    team2 = []
+
+    for player in state["players"]:
+        if "ريشي" in team1 and player == "ياسين":
+            team2.append(player)
+        elif "ياسين" in team1 and player == "ريشي":
+            team2.append(player)
+        elif "ريشي" in team2 and player == "ياسين":
+            team1.append(player)
+        elif "ياسين" in team2 and player == "ريشي":
+            team1.append(player)
+        else:
+            if len(team1) <= len(team2):
+                team1.append(player)
+            else:
+                team2.append(player)
+
+    return jsonify({"team1": team1, "team2": team2}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)

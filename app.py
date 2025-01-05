@@ -58,7 +58,7 @@ def reset_players():
 @app.route('/distribute', methods=['POST'])
 def distribute_teams():
     if len(state["players"]) < 2:
-        return jsonify({"error": "Not enough players to form teams"}), 400
+        return jsonify({"error": "لايمكن تقسيم لاعب واحد"}), 400
 
     players = state["players"][:]
     random.shuffle(players)

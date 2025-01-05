@@ -156,16 +156,16 @@ def main(page: ft.Page):
                 state = response.json()
                 is_open = state['is_open']
                 players = state['players']
-    
+
                 # تحديث حالة الأزرار
                 status_container.bgcolor = "green" if is_open else "red"
                 status_text.value = "الأزرار مفتوحة." if is_open else "الأزرار مغلقة."
-    
+
                 # تحديث قائمة اللاعبين
                 players_container.controls.clear()
                 for i, player in enumerate(players):
                     player_button = ft.ElevatedButton(
-                        text=f"{i + 1}. {player}",  # استخدام player مباشرة لأنه نص
+                        text=f"{i + 1}. {player}",
                         bgcolor="gray",
                         color="white",
                         width=300,
@@ -173,17 +173,8 @@ def main(page: ft.Page):
                         style=ft.ButtonStyle(text_style=ft.TextStyle(size=30))
                     )
                     players_container.controls.append(player_button)
-    
-                page.update()
-        else:
-            status_text.value = f"خطأ في الاتصال بالخادم: {response.status_code}"
-            status_container.bgcolor = "red"
-            page.update()
-    except requests.exceptions.RequestException as e:
-        status_text.value = f"خطأ في الاتصال بالخادم. السبب: {e}"
-        status_container.bgcolor = "red"
-        page.update()
 
+                page.update()
             else:
                 status_text.value = f"خطأ في الاتصال بالخادم: {response.status_code}"
                 status_container.bgcolor = "red"

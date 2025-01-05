@@ -40,9 +40,6 @@ def add_player():
     if not player_name:
         return jsonify({"error": "Player name is required"}), 400
 
-    if player_name in state["players"]:
-        return jsonify({"error": "Player name already exists"}), 400
-
     state["players"].append(player_name)
     added_players[client_id] = player_name
 
@@ -62,18 +59,16 @@ def distribute_teams():
     players = state["players"][:]
     random.shuffle(players)
 
-    # شرط توزيع ريشي وياسين
+    # تطبيق شرط ريشي وياسين
     team1 = []
     team2 = []
-
-    if "ريشي" in players and "ياسين" in players:
-        team1.append("ريشي")
-        team2.append("ياسين")
-        players.remove("ريشي")
-        players.remove("ياسين")
-
     for player in players:
-        if len(team1) <= len(team2):
+        if "ريشي" in player and "ياسين" in players:
+            if player not in team1 and "ياسين" not in team1:
+                team1.append(player)
+            elif player not in team2 and "ياسين" not in team2:
+                team2.append(player)
+        elif player not in team1:
             team1.append(player)
         else:
             team2.append(player)

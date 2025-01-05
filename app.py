@@ -1,29 +1,43 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from pymongo import MongoClient
 import random
 
 app = Flask(__name__)
 CORS(app)
 
-state = {
-    "is_open": False,
-    "players": [],
-}
+# MongoDB Atlas Connection
+MONGO_URI = "mongodb+srv://khalidfoot:Khalidd1233@fatih.zsrfd.mongodb.net/?retryWrites=true&w=majority&appName=fatih"
+client = MongoClient(MONGO_URI)
+db = client["team_game"]  # Database name
+players_collection = db["players"]  # Collection for players
+state_collection = db["state"]  # Collection for game state
 
 MAX_PLAYERS = 12
-added_players = {}
+
+# Initialize state from MongoDB
+state_doc = state_collection.find_one()
+if state_doc:
+    state = {"is_open": state_doc.get("is_open", False)}
+else:
+    state = {"is_open": False}
 
 @app.route('/state', methods=['GET'])
 def get_state():
-    return jsonify(state)
+    """Retrieve the current state."""
+    players = list(players_collection.find({}, {"_id": 0}))  # Get players without MongoDB IDs
+    return jsonify({"is_open": state["is_open"], "players": players})
 
 @app.route('/toggle_open', methods=['POST'])
 def toggle_open():
+    """Toggle session open/closed."""
     state["is_open"] = not state["is_open"]
+    state_collection.update_one({}, {"$set": {"is_open": state["is_open"]}}, upsert=True)
     return jsonify({"is_open": state["is_open"]})
 
 @app.route('/add_player', methods=['POST'])
 def add_player():
+    """Add a new player to the session."""
     if not state["is_open"]:
         return jsonify({"error": "Session is closed"}), 403
 
@@ -33,36 +47,35 @@ def add_player():
     if not client_uuid:
         return jsonify({"error": "Missing UUID"}), 400
 
-    if client_uuid in added_players:
+    if players_collection.find_one({"uuid": client_uuid}):
         return jsonify({"error": "لقد قمت بالفعل بضافة الاعب"}), 403
 
-    if len(state["players"]) >= MAX_PLAYERS:
+    if players_collection.count_documents({}) >= MAX_PLAYERS:
         return jsonify({"error": "تم الوصول للحد الاقصى من لاعبين حظ موفق في المرة القادمة"}), 403
 
     player_name = data.get("name", "").strip()
-
     if not player_name:
         return jsonify({"error": "اسم لاعب مطلوب"}), 400
 
-    state["players"].append({"name": player_name, "uuid": client_uuid})
-    added_players[client_uuid] = player_name
-
-    return jsonify({"success": True, "players": state["players"]})
+    player = {"name": player_name, "uuid": client_uuid}
+    players_collection.insert_one(player)
+    return jsonify({"success": True, "players": list(players_collection.find({}, {"_id": 0}))})
 
 @app.route('/reset_players', methods=['POST'])
 def reset_players():
-    state["players"] = []
-    added_players.clear()
+    """Reset all players."""
+    players_collection.delete_many({})
     return jsonify({"success": True})
 
 @app.route('/distribute', methods=['POST'])
 def distribute_teams():
-    if len(state["players"]) < 2:
+    """Distribute players into two teams."""
+    players = list(players_collection.find({}, {"_id": 0}))
+
+    if len(players) < 2:
         return jsonify({"error": "لايمكن تقسيم لاعب واحد"}), 400
 
-    players = state["players"][:]
     random.shuffle(players)
-
     team1, team2 = [], []
     for player in players:
         if player["name"] == "ياسين" and any(p["name"] == "ريشي" for p in players):
